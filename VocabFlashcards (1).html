@@ -1,0 +1,866 @@
+<div id="vocab-app" class="vocab-app">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="blob blob-c"></div>
+
+  <div class="vocab-shell">
+    <header class="vocab-header">
+      <button class="lang-toggle" id="langToggle">EN</button>
+      <h1 id="titleText">Vocabulary Cards</h1>
+      <p class="subtitle" id="subtitleText">Learn English words, review them, never forget.</p>
+      <p class="daily-badge" id="dailyBadge">You studied 0 words today</p>
+    </header>
+
+    <section class="panel progress-panel">
+      <div class="progress-row">
+        <span id="progressLead">Progress</span>
+        <span id="progressLabel">0 / 0 words learned (0%)</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </section>
+
+    <section class="panel form-panel">
+      <div class="form-grid">
+        <input id="termInput" type="text" />
+        <input id="meaningInput" type="text" />
+      </div>
+      <p class="form-error" id="formError"></p>
+      <button class="btn btn-primary btn-full" id="addBtn">Add</button>
+    </section>
+
+    <section class="toolbar">
+      <div class="filter-group" id="filterGroup">
+        <button class="filter-btn active" data-filter="unlearned"></button>
+        <button class="filter-btn" data-filter="all"></button>
+        <button class="filter-btn" data-filter="learned"></button>
+      </div>
+      <button class="btn btn-shuffle" id="shuffleBtn" title="Shuffle cards">🔀</button>
+    </section>
+
+    <section class="card-area" id="cardArea">
+      <!-- filled by JS -->
+    </section>
+
+    <section class="list-panel">
+      <h2 id="listTitle">All Words (0)</h2>
+      <ul class="word-list" id="wordList"></ul>
+      <p class="empty-note" id="emptyListNote" style="display:none;"></p>
+    </section>
+  </div>
+</div>
+
+<style>
+  #vocab-app, #vocab-app * { box-sizing: border-box; }
+
+  #vocab-app {
+    --bg-wash-1: #fbf5ff;
+    --bg-wash-2: #f2f8ff;
+    --bg-wash-3: #fff6ef;
+    --surface: #ffffff;
+    --surface-soft: #f8f5ff;
+    --lilac: #b9a6f5;
+    --lilac-strong: #a58cf0;
+    --peach: #ffcdb8;
+    --peach-strong: #ffb79c;
+    --mint: #a8e2c0;
+    --mint-strong: #8ed3aa;
+    --coral: #ff9fa8;
+    --text-main: #4a4560;
+    --text-soft: #8a83a3;
+    --text-faint: #b7b0cc;
+    --ring: #e9e2fb;
+
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+    background: linear-gradient(135deg, var(--bg-wash-1) 0%, var(--bg-wash-2) 55%, var(--bg-wash-3) 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-main);
+    padding: 40px 16px 64px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-a { width: 280px; height: 280px; top: -80px; left: -80px; background: var(--lilac); }
+  .blob-b { width: 240px; height: 240px; bottom: 40px; right: -100px; background: var(--peach); }
+  .blob-c { width: 200px; height: 200px; top: 45%; left: -110px; background: var(--mint); opacity: 0.4; }
+
+  .vocab-shell {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .vocab-header { position: relative; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+  .lang-toggle {
+    position: absolute;
+    top: -6px;
+    right: 0;
+    border: 1px solid var(--ring);
+    background: var(--surface);
+    color: var(--lilac-strong);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .lang-toggle:hover { background: var(--surface-soft); }
+  .vocab-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+  }
+  .subtitle { margin: 0; font-size: 13.5px; color: var(--text-soft); }
+  .daily-badge {
+    margin: 6px auto 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--lilac-strong);
+    background: var(--surface-soft);
+    border: 1px solid var(--ring);
+    padding: 5px 14px;
+    border-radius: 999px;
+    display: inline-block;
+  }
+
+  .panel {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 18px;
+    box-shadow: 0 10px 30px -18px rgba(120, 100, 180, 0.35);
+    border: 1px solid var(--ring);
+  }
+
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+  }
+  .progress-track {
+    width: 100%;
+    height: 10px;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--lilac), var(--coral));
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  @media (min-width: 480px) {
+    .form-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .form-panel input {
+    width: 100%;
+    border: 1.5px solid var(--ring);
+    background: var(--surface-soft);
+    border-radius: 14px;
+    padding: 11px 14px;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-panel input::placeholder { color: var(--text-faint); }
+  .form-panel input:focus {
+    border-color: var(--lilac);
+    box-shadow: 0 0 0 3px rgba(185, 166, 245, 0.25);
+  }
+  .form-error {
+    min-height: 16px;
+    font-size: 12px;
+    color: var(--coral);
+    margin: 0 0 8px 2px;
+  }
+
+  .btn {
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 14px;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-full { width: 100%; padding: 12px; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--lilac), var(--lilac-strong));
+    color: #ffffff;
+    box-shadow: 0 10px 20px -10px rgba(165, 140, 240, 0.7);
+  }
+  .btn-primary:hover { filter: brightness(1.04); }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .filter-group {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 16px;
+    padding: 5px;
+  }
+  .filter-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 4px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .filter-btn.active {
+    background: var(--surface-soft);
+    color: var(--lilac-strong);
+  }
+  .btn-shuffle {
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  .btn-shuffle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .card-area { min-height: 260px; }
+
+  .flip-outer {
+    width: 100%;
+    height: 220px;
+    perspective: 1400px;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+  .flip-inner.flipped { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px;
+    text-align: center;
+    backface-visibility: hidden;
+    border: 1px solid var(--ring);
+    box-shadow: 0 16px 34px -20px rgba(120, 100, 180, 0.45);
+  }
+  .flip-front { background: var(--surface); }
+  .flip-back { background: linear-gradient(160deg, #f3ecff, #ffe9e3); transform: rotateY(180deg); }
+  .flip-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: var(--lilac-strong);
+  }
+  .flip-term { font-size: 30px; font-weight: 800; color: var(--text-main); }
+  .flip-meaning { font-size: 24px; font-weight: 700; color: var(--text-main); }
+  .flip-hint { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+
+  .card-controls {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-ghost {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    color: var(--text-soft);
+    padding: 11px;
+  }
+  .btn-ghost:hover { background: var(--surface-soft); }
+  .btn-learn {
+    flex: 1;
+    padding: 11px;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--mint), var(--mint-strong));
+    box-shadow: 0 10px 20px -10px rgba(142, 211, 170, 0.75);
+  }
+  .btn-learn.is-learned {
+    background: var(--surface-soft);
+    color: var(--text-soft);
+    box-shadow: none;
+    border: 1px solid var(--ring);
+  }
+  .deck-counter {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-top: 8px;
+  }
+
+  .empty-card {
+    height: 220px;
+    border-radius: 26px;
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    padding: 20px;
+  }
+  .empty-card .title { font-size: 14px; font-weight: 700; color: var(--text-soft); }
+  .empty-card .desc { font-size: 12px; color: var(--text-faint); }
+
+  .list-panel h2 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-soft);
+    margin: 0 0 10px 2px;
+  }
+  .word-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .word-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 16px;
+    padding: 10px 14px;
+  }
+  .word-item.learned { background: var(--surface-soft); }
+  .word-info { min-width: 0; }
+  .word-term {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .word-item.learned .word-term { color: var(--text-faint); text-decoration: line-through; }
+  .word-meaning {
+    font-size: 12px;
+    color: var(--text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .word-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .badge-learned {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--mint-strong);
+    background: #eafaf1;
+    border-radius: 999px;
+    padding: 4px 9px;
+  }
+  .link-btn {
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .link-btn.learn { color: var(--lilac-strong); }
+  .link-btn.learn:hover { background: var(--surface-soft); }
+  .link-btn.delete { color: var(--coral); }
+  .link-btn.delete:hover { background: #fff0f1; }
+  .empty-note { font-size: 12px; color: var(--text-faint); padding: 4px 2px; }
+</style>
+
+<script>
+(function () {
+  const WORDS_KEY = "vocab_words_v1";
+  const DAILY_KEY = "vocab_daily_v1";
+  const LANG_KEY = "vocab_lang_v1";
+
+  const seedWordsByLang = {
+    en: [
+      { id: 1, term: "serendipity", meaning: "a happy accident", learned: false },
+      { id: 2, term: "resilient", meaning: "able to recover quickly", learned: false },
+      { id: 3, term: "eloquent", meaning: "fluent and persuasive in speech", learned: false }
+    ],
+    tr: [
+      { id: 1, term: "serendipity", meaning: "beklenmedik güzel bir tesadüf", learned: false },
+      { id: 2, term: "resilient", meaning: "dirençli, kolay yıkılmayan", learned: false },
+      { id: 3, term: "eloquent", meaning: "etkileyici ve akıcı konuşan", learned: false }
+    ]
+  };
+
+  const STRINGS = {
+    en: {
+      title: "Vocabulary Cards",
+      subtitle: "Learn English words, review them, never forget.",
+      dailyBadge: (n) => "You studied " + n + " word" + (n === 1 ? "" : "s") + " today",
+      progressLead: "Progress",
+      progressLabel: (learned, total, pct) => learned + " / " + total + " words learned (" + pct + "%)",
+      termPlaceholder: "Word (e.g. brave)",
+      meaningPlaceholder: "Meaning (e.g. cesur)",
+      formErrorEmpty: "Please fill in both the word and its meaning.",
+      addBtn: "Add",
+      filterUnlearned: "To learn",
+      filterAll: "All",
+      filterLearned: "Learned",
+      shuffleTitle: "Shuffle cards",
+      flipEyebrowFront: "Word",
+      flipEyebrowBack: "Meaning",
+      flipHintFront: "Tap to see the meaning",
+      flipHintBack: "Tap again to flip back",
+      prevBtn: "← Previous",
+      nextBtn: "Next →",
+      learnBtn: "✓ Learned",
+      unlearnBtn: "↺ Undo",
+      deckCounter: (i, total) => i + " / " + total,
+      emptyNoWords: "No words yet.",
+      emptyNoWordsDesc: "Add your first word above to get started.",
+      emptyAllLearned: "🎉 You've learned all your words!",
+      emptyAllLearnedDesc: "Review them from the \"Learned\" filter, or add new words.",
+      emptyFilterNone: "No words in this filter.",
+      listTitle: (n) => "All Words (" + n + ")",
+      listEmpty: "The list is empty.",
+      badgeLearned: "Learned",
+      listLearnBtn: "Learned",
+      listUnlearnBtn: "Undo",
+      deleteBtn: "Delete"
+    },
+    tr: {
+      title: "Kelime Kartları",
+      subtitle: "İngilizce kelimeleri öğren, tekrar et, unutma.",
+      dailyBadge: (n) => "Bugün " + n + " kelime çalıştın",
+      progressLead: "İlerleme",
+      progressLabel: (learned, total, pct) => learned + " / " + total + " kelime öğrenildi (%" + pct + ")",
+      termPlaceholder: "Kelime (örn. brave)",
+      meaningPlaceholder: "Anlamı (örn. cesur)",
+      formErrorEmpty: "Lütfen hem kelimeyi hem de anlamını gir.",
+      addBtn: "Ekle",
+      filterUnlearned: "Öğrenilmeyen",
+      filterAll: "Tümü",
+      filterLearned: "Öğrenilen",
+      shuffleTitle: "Kartları karıştır",
+      flipEyebrowFront: "Kelime",
+      flipEyebrowBack: "Anlamı",
+      flipHintFront: "Anlamı görmek için dokun",
+      flipHintBack: "Kelimeye dönmek için tekrar dokun",
+      prevBtn: "← Önceki",
+      nextBtn: "Sonraki →",
+      learnBtn: "✓ Öğrendim",
+      unlearnBtn: "↺ Geri Al",
+      deckCounter: (i, total) => i + " / " + total,
+      emptyNoWords: "Henüz kelime eklenmedi.",
+      emptyNoWordsDesc: "Yukarıdan ilk kelimeni ekleyerek başla.",
+      emptyAllLearned: "🎉 Tüm kelimeleri öğrendin!",
+      emptyAllLearnedDesc: "\"Öğrenilen\" filtresinden tekrar edebilir ya da yeni kelime ekleyebilirsin.",
+      emptyFilterNone: "Bu filtrede kelime yok.",
+      listTitle: (n) => "Tüm Kelimeler (" + n + ")",
+      listEmpty: "Liste boş.",
+      badgeLearned: "Öğrenildi",
+      listLearnBtn: "Öğrendim",
+      listUnlearnBtn: "Geri Al",
+      deleteBtn: "Sil"
+    }
+  };
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function loadLang() {
+    try {
+      const raw = localStorage.getItem(LANG_KEY);
+      if (raw === "en" || raw === "tr") return raw;
+    } catch (e) {}
+    return "en";
+  }
+
+  function saveLang(lang) {
+    try {
+      localStorage.setItem(LANG_KEY, lang);
+    } catch (e) {}
+  }
+
+  function loadWords(lang) {
+    try {
+      const raw = localStorage.getItem(WORDS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return seedWordsByLang[lang] || seedWordsByLang.en;
+  }
+
+  function saveWords(words) {
+    try {
+      localStorage.setItem(WORDS_KEY, JSON.stringify(words));
+    } catch (e) {}
+  }
+
+  function loadDaily() {
+    try {
+      const raw = localStorage.getItem(DAILY_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.date === todayStr()) return data.count || 0;
+      }
+    } catch (e) {}
+    return 0;
+  }
+
+  function saveDaily(count) {
+    try {
+      localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), count }));
+    } catch (e) {}
+  }
+
+  function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // --- State ---
+  let lang = loadLang();
+  let words = loadWords(lang);
+  let dailyCount = loadDaily();
+  let filterMode = "unlearned"; // 'all' | 'unlearned' | 'learned'
+  let deckOrder = [];
+  let currentIndex = 0;
+  let isFlipped = false;
+
+  function t() {
+    return STRINGS[lang];
+  }
+
+  function recomputeDeck(resetIndex) {
+    const filtered = words.filter((w) => {
+      if (filterMode === "unlearned") return !w.learned;
+      if (filterMode === "learned") return w.learned;
+      return true;
+    });
+    deckOrder = filtered.map((w) => w.id);
+    if (resetIndex) {
+      currentIndex = 0;
+      isFlipped = false;
+    }
+    if (currentIndex >= deckOrder.length) {
+      currentIndex = Math.max(0, deckOrder.length - 1);
+    }
+  }
+
+  function getWordById(id) {
+    return words.find((w) => w.id === id) || null;
+  }
+
+  // --- DOM refs ---
+  const root = document.getElementById("vocab-app");
+  const langToggle = root.querySelector("#langToggle");
+  const titleText = root.querySelector("#titleText");
+  const subtitleText = root.querySelector("#subtitleText");
+  const dailyBadge = root.querySelector("#dailyBadge");
+  const progressLead = root.querySelector("#progressLead");
+  const progressLabel = root.querySelector("#progressLabel");
+  const progressFill = root.querySelector("#progressFill");
+  const termInput = root.querySelector("#termInput");
+  const meaningInput = root.querySelector("#meaningInput");
+  const formError = root.querySelector("#formError");
+  const addBtn = root.querySelector("#addBtn");
+  const filterGroup = root.querySelector("#filterGroup");
+  const shuffleBtn = root.querySelector("#shuffleBtn");
+  const cardArea = root.querySelector("#cardArea");
+  const listTitle = root.querySelector("#listTitle");
+  const wordList = root.querySelector("#wordList");
+  const emptyListNote = root.querySelector("#emptyListNote");
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderStaticText() {
+    const s = t();
+    langToggle.textContent = lang === "en" ? "TR" : "EN";
+    titleText.textContent = s.title;
+    subtitleText.textContent = s.subtitle;
+    progressLead.textContent = s.progressLead;
+    termInput.placeholder = s.termPlaceholder;
+    meaningInput.placeholder = s.meaningPlaceholder;
+    addBtn.textContent = s.addBtn;
+    shuffleBtn.title = s.shuffleTitle;
+    formError.textContent = "";
+
+    const filterBtns = filterGroup.querySelectorAll(".filter-btn");
+    filterBtns[0].textContent = s.filterUnlearned;
+    filterBtns[1].textContent = s.filterAll;
+    filterBtns[2].textContent = s.filterLearned;
+  }
+
+  function renderProgress() {
+    const s = t();
+    const total = words.length;
+    const learned = words.filter((w) => w.learned).length;
+    const pct = total > 0 ? Math.round((learned / total) * 100) : 0;
+    progressLabel.textContent = s.progressLabel(learned, total, pct);
+    progressFill.style.width = pct + "%";
+  }
+
+  function renderDaily() {
+    dailyBadge.textContent = t().dailyBadge(dailyCount);
+  }
+
+  function renderCard() {
+    const s = t();
+    const currentWord = deckOrder.length > 0 ? getWordById(deckOrder[currentIndex]) : null;
+
+    if (!currentWord) {
+      let title, desc;
+      if (words.length === 0) {
+        title = s.emptyNoWords;
+        desc = s.emptyNoWordsDesc;
+      } else if (filterMode === "unlearned") {
+        title = s.emptyAllLearned;
+        desc = s.emptyAllLearnedDesc;
+      } else {
+        title = s.emptyFilterNone;
+        desc = "";
+      }
+      cardArea.innerHTML =
+        '<div class="empty-card"><span class="title">' + escapeHtml(title) + '</span>' +
+        (desc ? '<span class="desc">' + escapeHtml(desc) + '</span>' : '') +
+        '</div>';
+      return;
+    }
+
+    cardArea.innerHTML =
+      '<div class="flip-outer" id="flipOuter">' +
+        '<div class="flip-inner' + (isFlipped ? ' flipped' : '') + '" id="flipInner">' +
+          '<div class="flip-face flip-front">' +
+            '<span class="flip-eyebrow">' + escapeHtml(s.flipEyebrowFront) + '</span>' +
+            '<span class="flip-term">' + escapeHtml(currentWord.term) + '</span>' +
+            '<span class="flip-hint">' + escapeHtml(s.flipHintFront) + '</span>' +
+          '</div>' +
+          '<div class="flip-face flip-back">' +
+            '<span class="flip-eyebrow">' + escapeHtml(s.flipEyebrowBack) + '</span>' +
+            '<span class="flip-meaning">' + escapeHtml(currentWord.meaning) + '</span>' +
+            '<span class="flip-hint">' + escapeHtml(s.flipHintBack) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-controls">' +
+        '<button class="btn btn-ghost" id="prevBtn">' + escapeHtml(s.prevBtn) + '</button>' +
+        '<button class="btn btn-learn' + (currentWord.learned ? ' is-learned' : '') + '" id="learnBtn">' +
+          escapeHtml(currentWord.learned ? s.unlearnBtn : s.learnBtn) +
+        '</button>' +
+        '<button class="btn btn-ghost" id="nextBtn">' + escapeHtml(s.nextBtn) + '</button>' +
+      '</div>' +
+      '<p class="deck-counter">' + s.deckCounter(currentIndex + 1, deckOrder.length) + '</p>';
+
+    root.querySelector("#flipOuter").addEventListener("click", () => {
+      isFlipped = !isFlipped;
+      if (isFlipped) {
+        dailyCount += 1;
+        saveDaily(dailyCount);
+        renderDaily();
+      }
+      root.querySelector("#flipInner").classList.toggle("flipped", isFlipped);
+    });
+
+    root.querySelector("#prevBtn").addEventListener("click", () => {
+      if (deckOrder.length === 0) return;
+      isFlipped = false;
+      currentIndex = (currentIndex - 1 + deckOrder.length) % deckOrder.length;
+      renderCard();
+    });
+
+    root.querySelector("#nextBtn").addEventListener("click", () => {
+      if (deckOrder.length === 0) return;
+      isFlipped = false;
+      currentIndex = (currentIndex + 1) % deckOrder.length;
+      renderCard();
+    });
+
+    root.querySelector("#learnBtn").addEventListener("click", () => {
+      const wasFlipped = isFlipped;
+      toggleLearned(currentWord.id);
+      if (!wasFlipped) {
+        dailyCount += 1;
+        saveDaily(dailyCount);
+        renderDaily();
+      }
+    });
+  }
+
+  function renderList() {
+    const s = t();
+    listTitle.textContent = s.listTitle(words.length);
+    if (words.length === 0) {
+      wordList.innerHTML = "";
+      emptyListNote.textContent = s.listEmpty;
+      emptyListNote.style.display = "block";
+      return;
+    }
+    emptyListNote.style.display = "none";
+    wordList.innerHTML = words
+      .map(
+        (w) =>
+          '<li class="word-item' + (w.learned ? ' learned' : '') + '" data-id="' + w.id + '">' +
+            '<div class="word-info">' +
+              '<div class="word-term">' + escapeHtml(w.term) + '</div>' +
+              '<div class="word-meaning">' + escapeHtml(w.meaning) + '</div>' +
+            '</div>' +
+            '<div class="word-actions">' +
+              (w.learned ? '<span class="badge-learned">' + escapeHtml(s.badgeLearned) + '</span>' : '') +
+              '<button class="link-btn learn" data-action="learn" data-id="' + w.id + '">' +
+                escapeHtml(w.learned ? s.listUnlearnBtn : s.listLearnBtn) +
+              '</button>' +
+              '<button class="link-btn delete" data-action="delete" data-id="' + w.id + '">' + escapeHtml(s.deleteBtn) + '</button>' +
+            '</div>' +
+          '</li>'
+      )
+      .join("");
+  }
+
+  function renderAll(resetDeck) {
+    if (resetDeck) recomputeDeck(true);
+    renderStaticText();
+    renderProgress();
+    renderDaily();
+    renderCard();
+    renderList();
+    saveWords(words);
+  }
+
+  function toggleLearned(id) {
+    words = words.map((w) => (w.id === id ? Object.assign({}, w, { learned: !w.learned }) : w));
+    recomputeDeck(false);
+    renderProgress();
+    renderCard();
+    renderList();
+    saveWords(words);
+  }
+
+  function deleteWord(id) {
+    words = words.filter((w) => w.id !== id);
+    recomputeDeck(false);
+    renderProgress();
+    renderCard();
+    renderList();
+    saveWords(words);
+  }
+
+  function addWord() {
+    const s = t();
+    const term = termInput.value.trim();
+    const meaning = meaningInput.value.trim();
+    if (!term || !meaning) {
+      formError.textContent = s.formErrorEmpty;
+      return;
+    }
+    formError.textContent = "";
+    words.push({ id: Date.now(), term, meaning, learned: false });
+    termInput.value = "";
+    meaningInput.value = "";
+    recomputeDeck(false);
+    renderProgress();
+    renderCard();
+    renderList();
+    saveWords(words);
+  }
+
+  // --- Event bindings ---
+  addBtn.addEventListener("click", addWord);
+  [termInput, meaningInput].forEach((input) => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addWord();
+    });
+  });
+
+  langToggle.addEventListener("click", () => {
+    lang = lang === "en" ? "tr" : "en";
+    saveLang(lang);
+    renderStaticText();
+    renderProgress();
+    renderDaily();
+    renderCard();
+    renderList();
+  });
+
+  filterGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-btn");
+    if (!btn) return;
+    filterMode = btn.dataset.filter;
+    Array.from(filterGroup.querySelectorAll(".filter-btn")).forEach((b) =>
+      b.classList.toggle("active", b === btn)
+    );
+    recomputeDeck(true);
+    renderCard();
+  });
+
+  shuffleBtn.addEventListener("click", () => {
+    if (deckOrder.length < 2) return;
+    deckOrder = shuffleArray(deckOrder);
+    currentIndex = 0;
+    isFlipped = false;
+    renderCard();
+  });
+
+  wordList.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    if (btn.dataset.action === "learn") toggleLearned(id);
+    if (btn.dataset.action === "delete") deleteWord(id);
+  });
+
+  // --- Initial render ---
+  renderAll(true);
+})();
+</script>
